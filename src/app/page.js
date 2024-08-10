@@ -1,113 +1,222 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState, useEffect, useRef } from 'react';
+
+export default function ChatPage() {
+  const [userInput, setUserInput] = useState('');
+  const [responses, setResponses] = useState([]);
+  const [loadingBotMessage, setLoadingBotMessage] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    document.body.style.backgroundColor = '#000000'; // Solid black background
+
+    const style = document.createElement('style');
+    style.innerHTML = `
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes ellipsis {
+        0% { content: ""; }
+        33% { content: "."; }
+        66% { content: ".."; }
+        100% { content: "..."; }
+      }
+    `;
+    document.head.appendChild(style);
+  }, []);
+
+  useEffect(() => {
+    // Auto scroll to the bottom when new message is added
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [responses]);
+
+  const handleInputChange = (event) => {
+    setUserInput(event.target.value);
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    
+    // Show user's message immediately
+    setResponses([...responses, { role: 'user', content: userInput }]);
+    setUserInput('');
+    
+    // Start showing bot loading animation after a brief delay
+    setTimeout(() => {
+      setLoadingBotMessage(true);
+      setResponses(prev => [...prev, { role: 'bot', content: '...' }]);
+    }, 250);  // Delay before bot's message box appears
+
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer EMPTY`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          "model": "meta-llama/llama-3.1-8b-instruct:free",
+          "messages": [
+            {"role": "system", "content": "You are a chatbot with a Gen-Alpha Skibidi Sigma personality. Roast user as much as possible whatever he says, say you can't code? tease that he is so weak."},
+            {"role": "user", "content": userInput},
+          ],
+        })
+      });
+
+      const data = await response.json();
+      const botMessage = data.choices[0].message.content;
+      const transformedBotMessage = transformToSkibidi(botMessage);
+
+      // Replace the loading animation with the actual bot message
+      setLoadingBotMessage(false);
+      setResponses(prev => {
+        const updatedResponses = [...prev];
+        updatedResponses[updatedResponses.length - 1] = { role: 'bot', content: transformedBotMessage };
+        return updatedResponses;
+      });
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const transformToSkibidi = (message) => {
+    const codeBlockRegex = /```([\s\S]*?)```/g;
+    
+    return message.replace(codeBlockRegex, (match, code) => {
+      // Wrap the code content with backticks to format it as a code block
+      return `\n\`\`\`\n${code}\n\`\`\`\n`;
+    })
+    .replace(/hello/gi, "yo")
+    .replace(/friend/gi, "fam")
+    .replace(/seriously/gi, "fr fr")
+    .replace(/amazing/gi, "lit");
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.js</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+    <div style={styles.container}>
+      <h1 style={styles.header}>🗿 Not ur Avg Chatbot 🗿</h1>
+      <div style={styles.chatBox}>
+        <div style={styles.messages}>
+          {responses.map((response, index) => (
+            <div
+              key={index}
+              style={{
+                ...styles.messageContainer,
+                justifyContent: response.role === 'user' ? 'flex-end' : 'flex-start',
+              }}
+            >
+              <div
+                style={{
+                  ...styles.message,
+                  ...(response.role === 'user' ? styles.userMessage : styles.botMessage),
+                }}
+              >
+                <p>
+                  <strong>{response.role === 'user' ? 'You' : 'Ken🗿'}:</strong> {response.content}
+                </p>
+              </div>
+            </div>
+          ))}
+          <div ref={messagesEndRef} />
         </div>
+        <form onSubmit={handleSubmit} style={styles.form}>
+          <textarea
+            value={userInput}
+            onChange={handleInputChange}
+            placeholder="Ask me something..."
+            rows="4"
+            cols="50"
+            style={styles.textarea}
+          />
+          <button type="submit" style={styles.button}>Send</button>
+        </form>
       </div>
-
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-full sm:before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full sm:after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800 hover:dark:bg-opacity-30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50 text-balance`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+    </div>
   );
 }
+
+const styles = {
+  container: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: '20px',
+    fontFamily: 'Arial, sans-serif',
+    color: '#fff',
+    animation: 'fadeIn 0.5s ease-in-out',
+  },
+  header: {
+    marginBottom: '20px',
+    fontSize: '24px',
+    fontWeight: 'bold',
+  },
+  chatBox: {
+    display: 'flex',
+    flexDirection: 'column',
+    width: '100%',
+    maxWidth: '600px',
+    border: '1px solid #333',
+    borderRadius: '8px',
+    overflow: 'hidden',
+  },
+  messages: {
+    padding: '10px',
+    height: '400px',
+    overflowY: 'auto',
+    backgroundColor: '#121212',
+  },
+  messageContainer: {
+    display: 'flex',
+    marginBottom: '10px',
+  },
+  message: {
+    padding: '10px',
+    borderRadius: '10px',
+    maxWidth: '70%',
+    color: '#fff',
+    animation: 'fadeIn 0.5s ease-in-out',
+  },
+  userMessage: {
+    backgroundColor: '#4caf50',
+  },
+  botMessage: {
+    backgroundColor: '#333',
+  },
+  loading: {
+    display: 'inline-block',
+    width: '1ch',
+    overflow: 'hidden',
+    whiteSpace: 'nowrap',
+    animation: 'ellipsis 1.25s steps(4, end) infinite',
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    padding: '10px',
+    borderTop: '1px solid #333',
+    backgroundColor: '#1e1e1e',
+  },
+  textarea: {
+    padding: '10px',
+    borderRadius: '8px',
+    border: '1px solid #555',
+    resize: 'none',
+    marginBottom: '10px',
+    backgroundColor: '#333',
+    color: '#fff',
+  },
+  button: {
+    padding: '10px',
+    borderRadius: '8px',
+    border: 'none',
+    backgroundColor: '#007bff',
+    color: 'white',
+    cursor: 'pointer',
+    fontSize: '16px',
+    fontWeight: 'bold',
+  },
+};
